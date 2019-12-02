@@ -71,6 +71,7 @@ org.apache.tomcat.util.net.NioSelectorShared=true
 gpg.exec=/path/to/gpg
 
 # Code signing of Windows installer
+skip.installer=true
 do.codesigning=false
 codesigning.user=request-via-pmc
 codesigning.pwd=request-via-pmc
