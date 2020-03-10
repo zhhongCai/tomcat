@@ -1,0 +1,11 @@
+@startuml
+
+header tomcat-9.0.30
+
+title AprEndpoint start()
+
+AbstractEndpoint -> AprEndpoint++: startInternal()
+
+AbstractEndpoint <-- AprEndpoint--
+
+@enduml

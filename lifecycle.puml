@@ -1,0 +1,44 @@
+@startuml
+
+header tomcat-9.0.30
+
+title 实现Lifecycle接口的组件的状态
+
+[*] --> NEW
+NEW --> INITIALIZING: init()
+NEW --> DESTROYING: destroy()
+NEW --> STARTING_PREP: start()
+NEW --> STOPPED: stop()
+INITIALIZING --> INITIALIZED: auto
+INITIALIZED --> DESTROYING: destroy()
+INITIALIZED --> STARTING_PREP: start()
+STARTING_PREP --> STARTING: auto
+STARTING --> STARTED: auto
+STARTED --> STOPPING_PREP: stop()
+STOPPING_PREP --> STOPPING: auto
+STOPPING --> STOPPED: auto
+STOPPED --> STARTING_PREP: start()
+STOPPED --> DESTROYING: destroy()
+DESTROYING --> DESTROYED: auto
+
+FAILED --> STOPPING: stop()
+FAILED --> DESTROYING: destroy()
+
+note top of FAILED
+Any state can transition to FAILED:
+NEW --> FAILED
+INITIALIZING --> FAILED
+INITIALIZED --> FAILED
+STARTING_PREP --> FAILED
+STARTING --> FAILED
+STARTED --> FAILED
+STOPPING_PREP --> FAILED
+STOPPING --> FAILED
+STOPPED --> FAILED
+DESTROYING --> FAILED
+DESTROYED --> FAILED
+end note
+
+DESTROYED --> [*]
+
+@enduml

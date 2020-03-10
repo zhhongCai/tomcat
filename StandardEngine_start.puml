@@ -1,0 +1,105 @@
+@startuml
+
+header tomcat-9.0.30
+
+title StandardEngine start()
+
+activate StandardService
+StandardService -> StandardEngine++: engine.start()
+    note right
+        调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+    end note
+
+    StandardEngine -> StandardEngine++: startInternal
+        StandardEngine -> ContainerBase++: super.startInternal()
+            opt "cluster instanceof Lifecycle"
+                ContainerBase -> Cluster++: start()
+                    note right
+                        调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+                    end note
+                    Cluster -> SimpleTcpCluster++: startInternal()
+                        note left
+                            见Cluster_start.puml
+                        end note
+                    Cluster <-- SimpleTcpCluster--
+                ContainerBase <-- Cluster--
+            end opt
+
+            opt "realm instanceof Lifecycle"
+                ContainerBase -> RealmBase++: start()
+                    note left
+                        调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+                    end note
+                    RealmBase -> RealmBase++: startInternal()
+                        note left
+                            见不同realm实现
+                        end note
+                    RealmBase <-- RealmBase--
+                ContainerBase <-- RealmBase--
+            end opt
+
+            loop Container child in children
+                note left
+                异步并行start：startStopExecutor.submit(new StartChild(children[i]))
+                end note
+                ContainerBase ->  StandardHost++: children[i]).start()
+                    note left
+                    pipeline中添加errorValve(org.apache.catalina.valves.ErrorReportValve，如果不存在)
+                    end note
+                    StandardHost -> ContainerBase++: super.startInternal()
+                    StandardHost <-- ContainerBase--
+                ContainerBase <-- StandardHost--
+            end loop
+
+            ContainerBase -> StandardPipeline++: start()
+                note left
+                    调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+                end note
+                StandardPipeline -> StandardPipeline++: startInternal()
+                loop valve in valve chain
+                    note left
+                    各种valve实现，已AccessLogValve为例
+                    end note
+                    StandardPipeline -> AccessLogValve++: start()
+                    StandardPipeline <-- AccessLogValve--
+                end loop
+                StandardPipeline <-- StandardPipeline--
+            ContainerBase <-- StandardPipeline--
+            deactivate ContainerBase
+
+            ContainerBase -> LifecycleBase++: setState(LifecycleState.STARTING)
+                LifecycleBase -> LifecycleBase++: setStateInternal(state, null, true)
+                    LifecycleBase -> LifecycleBase++: fireLifecycleEvent(lifecycleEvent, data)
+                        loop listener in lifecycleListeners
+                            LifecycleBase ->  LifecycleListener++: listener.lifecycleEvent(event);
+                                note left
+                                    LifecycleListener实现类:
+                                    EngineConfig: Startup event listener for a Engine that
+                                        configures the properties of that Engine, and the
+                                        associated defined contexts.
+                                    HostConfig: Startup event listener for a Host that configures
+                                        the properties of that Host, and the associated defined contexts.
+                                        如果是START_EVENT事件且DeployOnStartup将部署应用: deployApps()
+                                    ContextConfig: Startup event listener for a Context that configures the properties
+                                        of that Context, and the associated defined servlets.
+                                end note
+                            LifecycleBase <--  LifecycleListener--
+                        end loop
+                    LifecycleBase <-- LifecycleBase--:
+                LifecycleBase <-- LifecycleBase--:
+            ContainerBase <-- LifecycleBase--:
+
+            note left
+              monitorFuture = Container.getService(ContainerBase.this).getServer()
+                  .getUtilityExecutor().scheduleWithFixedDelay(
+                          new ContainerBackgroundProcessorMonitor(), 0, 60, TimeUnit.SECONDS);
+
+              见ContainerBackgroundProcessorMonitor.puml
+            end note
+        StandardEngine <-- ContainerBase--
+    StandardEngine <-- StandardEngine--
+
+StandardService <-- StandardEngine--
+deactivate StandardService
+
+@enduml

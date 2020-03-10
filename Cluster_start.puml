@@ -1,0 +1,11 @@
+@startuml
+
+header tomcat-9.0.30
+
+title Nio2Endpoint start()
+
+AbstractEndpoint -> Nio2Endpoint++: startInternal()
+
+AbstractEndpoint <-- Nio2Endpoint--
+
+@enduml

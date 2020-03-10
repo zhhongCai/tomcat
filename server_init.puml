@@ -1,0 +1,88 @@
+@startuml
+
+header tomcat-9.0.30
+
+title Server init()
+
+activate Catalina
+Catalina -> StandardServer++: getServer().init();
+    StandardServer -> LifecycleBase++: setStateInternal(LifecycleState.INITIALIZING, null, false)
+    deactivate LifecycleBase
+
+    LifecycleBase -> StandardServer++: initInternal()
+        StandardServer -> LifecycleMBeanBase++:  super.initInternal()
+        deactivate LifecycleMBeanBase
+
+        StandardServer -> StandardServer++: reconfigureUtilityExecutor(getUtilityThreadsInternal(utilityThreads))
+        deactivate StandardServer
+
+        StandardServer -> StandardServer++: register(utilityExecutor, "type=UtilityExecutor")
+        deactivate StandardServer
+
+        StandardServer -> NamingResourcesImpl++: globalNamingResources.init();
+        deactivate NamingResourcesImpl
+
+        loop service in services
+            StandardServer -> StandardService++: services[i].init()
+                StandardService -> LifecycleBase++: setStateInternal(LifecycleState.INITIALIZING, null, false)
+                deactivate LifecycleBase
+
+                StandardEngine -> StandardService++: initInternal()
+                    StandardService -> LifecycleMBeanBase++:  super.initInternal()
+                    deactivate LifecycleMBeanBase
+
+                    StandardService -> StandardEngine++: engine.init()
+                        StandardEngine -> StandardEngine++: initInternal()
+                        deactivate StandardEngine
+                    deactivate StandardEngine
+
+
+                    StandardService -> StandardThreadExecutor++: executor.init();
+                        StandardThreadExecutor -> StandardThreadExecutor++: initInternal();
+                        deactivate StandardThreadExecutor
+                    deactivate StandardThreadExecutor
+
+                    StandardService -> MapperListener++: mapperListener.init();
+                        MapperListener -> MapperListener++: initInternal();
+                        deactivate MapperListener
+                    deactivate MapperListener
+
+                    loop connector in connectors
+                        StandardService -> Connector++: connector.init()
+                            Connector -> Connector++: initInternal();
+                                Connector -> AbstractProtocol++: protocolHandler.init()
+                                    AbstractProtocol -> AbstractEndpoint++: endpoint.init()
+                                        AbstractEndpoint -> AbstractEndpoint++: bindWithCleanup()
+                                            AbstractEndpoint -> NioEndpoint++: bind()
+                                            note left
+                                            initServerSocket()
+
+                                            initialiseSsl();
+
+                                            selectorPool.open(getName());
+
+                                            如果使用nio2:
+                                            Nio2Endpoint.bind()
+                                            如果使用apr
+                                            AprEndpoint.bind()
+                                            end note
+                                            deactivate NioEndpoint
+                                        deactivate AbstractEndpoint
+                                    deactivate AbstractEndpoint
+                                deactivate AbstractProtocol
+                            deactivate Connector
+                        deactivate Connector
+                    end loop
+                deactivate StandardService
+
+                StandardServer -> LifecycleBase++: setStateInternal(LifecycleState.INITIALIZED, null, false)
+                deactivate LifecycleBase
+            deactivate StandardService
+        end loop
+    deactivate StandardServer
+
+    StandardServer -> LifecycleBase++: setStateInternal(LifecycleState.INITIALIZED, null, false)
+    deactivate LifecycleBase
+deactivate StandardServer
+
+@enduml

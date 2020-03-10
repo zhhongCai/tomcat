@@ -1,0 +1,87 @@
+@startuml
+
+header tomcat-9.0.30
+
+title NioEndpoint start()
+
+activate AbstractEndpoint
+AbstractEndpoint -> NioEndpoint++: startInternal()
+opt "!running"
+    NioEndpoint -> NioEndpoint++
+        note right
+            running = true;
+            paused = false;
+
+            初始化processorCache,eventCache,nioChannels为SynchronizedStack
+
+            未创建executor时: createExecutor();
+
+            initializeConnectionLatch();
+
+            poller = new Poller();
+        end note
+    deactivate NioEndpoint
+
+    NioEndpoint -> Poller++: pollerThread.start();
+        Poller -> Poller++: run()
+            note left
+                后台进程: 添加sockets到Poller,检查Poller中被触发的事件,
+                当事件发生时移交socket给对应的processor
+            end note
+
+            Poller -> Poller++: events();
+            Poller <-- Poller--: 返回是否有事件被处理
+
+            Poller -> Poller++: processKey(sk, socketWrapper)
+                opt "socketWrapper.getSendfileData() != null"
+                    Poller -> Poller++:  processSendfile(sk, socketWrapper, false)
+                    Poller <-- Poller--:
+                else
+                    opt "sk.isReadable()"
+                        opt "ocketWrapper.readOperation != null"
+                            Poller -> NioOperationState++: socketWrapper.readOperation.process()
+                            Poller <-- NioOperationState--:
+                        else
+                            Poller -> AbstractEndpoint++:  processSocket(socketWrapper, SocketEvent.OPEN_READ, true)
+                                note left
+                                优先从processorCache取SocketProcessorBase,如果没有cache，
+                                createSocketProcessor(socketWrapper, event);
+
+                                需要在新线程中执行且配置了线程池:
+                                executor.execute(sc)
+                                否则,sc.run()
+
+                                getHandler().process(socketWrapper, SocketEvent.OPEN_READ)
+
+                                其中sc为SocketProcessor
+
+                                最后由AbstractProtocol.process执行
+
+                                end note
+                            Poller <-- AbstractEndpoint--:
+                        end opt
+                    end opt
+
+                end opt
+            Poller <-- Poller--
+
+            loop true
+
+            end loop
+        deactivate Poller
+    deactivate Poller
+
+    NioEndpoint -> NioEndpoint++: startAcceptorThread();
+        NioEndpoint -> Acceptor++: start()
+            Acceptor -> Acceptor++: run()
+
+
+
+            deactivate Acceptor
+        deactivate Acceptor
+    deactivate NioEndpoint
+end
+AbstractEndpoint <-- NioEndpoint--
+deactivate AbstractEndpoint
+
+@enduml
