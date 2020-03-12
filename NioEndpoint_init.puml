@@ -1,0 +1,15 @@
+@startuml
+
+header tomcat-9.0.30
+
+title NioEndpoint init()
+
+activate AbstractEndpoint
+AbstractEndpoint -> NioEndpoint++: startInternal()
+    note right
+
+    end note
+AbstractEndpoint <-- NioEndpoint--
+deactivate AbstractEndpoint
+
+@enduml

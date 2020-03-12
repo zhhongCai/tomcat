@@ -25,6 +25,7 @@ opt "!running"
     NioEndpoint -> Poller++: pollerThread.start();
         Poller -> Poller++: run()
             note left
+                在线程http-nio-8080-ClientPoller中:
                 后台进程: 添加sockets到Poller,检查Poller中被触发的事件,
                 当事件发生时移交socket给对应的processor
             end note
@@ -74,9 +75,20 @@ opt "!running"
     NioEndpoint -> NioEndpoint++: startAcceptorThread();
         NioEndpoint -> Acceptor++: start()
             Acceptor -> Acceptor++: run()
+                note left
+                在线程http-nio-8080-Acceptor中：
+                endpoint.connectionLimitLatch控制连接数
+                socketAccept
+                endpoint在运行且非暂停,移交socket给对应的processor: endpoint.setSocketOptions(socket)
+                end note
+                Acceptor -> NioEndpoint++: endpoint.serverSocketAccept()
+                ... 有连接被accept...
+                Acceptor <-- NioEndpoint--: 返回socket
 
-
-
+                Acceptor -> NioEndpoint++: endpoint.setSocketOptions(socket)
+                Acceptor <-- NioEndpoint--:
+            loop endpoint.isRunning()
+            end loop
             deactivate Acceptor
         deactivate Acceptor
     deactivate NioEndpoint

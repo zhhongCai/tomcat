@@ -1,0 +1,108 @@
+@startuml
+header tomcat-9.0.30
+
+title tomcat中的线程(默认配置时,NioEndpoint,AprEndpoint)
+
+component "StandardServer\n\n" as server {
+    component "ScheduledExecutorService: utilityExecutor\n\n" as  utilityExecutor {
+        [Thread: Catalina-utility-1]
+        [Thread: Catalina-utility-2]
+    }
+    note top  of utilityExecutor
+    创建时机: StandardServer.initInternal() ->
+        StandardServer.reconfigureUtilityExecutor(
+            getUtilityThreadsInternal(utilityThreads))
+
+    用途:
+        ContainerBase.startInternal()用来启动周期（每隔60秒）任务:
+        ContainerBackgroundProcessorMonitor: 用来启动ContainerBackgroundProcessor,
+
+        ContainerBackgroundProcessorMonitor.run() ->
+        ContainerBase.threadStart()用来启动周期（每隔60秒）任务:
+        ContainerBackgroundProcessor: 后台进程,执行当前容器或其子
+        容器的backgroundProcess方法: container.backgroundProcess();
+
+
+        StandardServer.startInternal()用来启动周期（每隔60秒）任务执行:
+        fireLifecycleEvent(Lifecycle.PERIODIC_EVENT, null)
+    end note
+
+    component NioEndpoint\n\n {
+        component "Executor: executor\n\n" as executor {
+            [Thread: http-nio-8080-exec-1]
+            [Thread: http-nio-8080-exec-2]
+            [Thread: http-nio-8080-exec-3]
+            [Thread: http-nio-8080-exec-4]
+            [Thread: http-nio-8080-exec-5]
+            [Thread: http-nio-8080-exec-6]
+            [Thread: http-nio-8080-exec-7]
+            [Thread: http-nio-8080-exec-8]
+            [Thread: http-nio-8080-exec-9]
+            [Thread: http-nio-8080-exec-10]
+        }
+        note top of executor
+        创建时机: NioEndpoint.startInternal() -> NioEndpoint -> createExecutor()
+        用途: 处理请求: Poller.processKey(selectionKey, socketWrapper) ->
+            AbstractEndpoint.processSocket() ->
+            AbstractEndpoint.getExecutor().execute(SocketProcessorBase sc);
+        end note
+
+        [Poller线程: http-nio-8080-ClientPoller] as poller
+        note top of poller
+        创建时机: NioEndpoint.startInternal()
+        用途:
+            轮询器: 负责处理Acceptor成功accept时移交的socket:
+            poller.register(channel, socketWrapper)
+            add PollerEvent(socket, OP_REGISTER)
+
+            处理事件队列中的事件: event in events -> event.run()
+
+            selector.select()
+
+            处理socket读、写：processKey(selectionKey, socketWrapper);
+        end note
+
+        [Acceptor线程: http-nio-8080-Acceptor] as acceptor
+        note top of acceptor
+        创建时机: NioEndpoint.startInternal() -> NioEndpoint.startAcceptorThread()
+        用途: accept收到的连接(默认最大连接数8*1024,超过将阻塞(LimitLatch：
+            connectionLimitLatch实现),直到有连接关闭才继续处理),
+            将accept成功的socket移交给对应处理器:
+            endpoint.setSocketOptions(socket)
+        end note
+
+        [BlockPoller线程: http-nio-8080-BlockPoller]  as blockPoller
+        note top of blockPoller
+        创建时机: NioEndpoint.init()-> NioEndpoint.bind() ->
+        selectorPool.open(getName()) ->
+        blockingSelector.open(name, getSharedSelector());
+        用途:
+        end note
+    }
+ }
+
+newpage
+
+component "StandardServer\n\n" as server {
+    component AprEndpoint\n\n {
+        component "Executor: executor\n\n" as aprExecutor {
+            [Thread: ajp-nio-8009-exec-1]
+            [Thread: ajp-nio-8009-exec-2]
+            [Thread: ajp-nio-8009-exec-3]
+            [Thread: ajp-nio-8009-exec-4]
+            [Thread: ajp-nio-8009-exec-5]
+            [Thread: ajp-nio-8009-exec-6]
+            [Thread: ajp-nio-8009-exec-7]
+            [Thread: ajp-nio-8009-exec-8]
+            [Thread: ajp-nio-8009-exec-9]
+            [Thread: ajp-nio-80090-exec-10]
+        }
+
+        [Poller线程: ajp-nio-8009-ClientPoller] as aprPoller
+
+        [Acceptor线程: ajp-nio-8009-Acceptor] as aprAcceptor
+
+        [BlockPoller线程: ajp-nio-8009-BlockPoller]  as aprBlockPoller
+    }
+}
+@enduml
