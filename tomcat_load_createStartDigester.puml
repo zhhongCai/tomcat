@@ -1,0 +1,53 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--创建用来解析server.xml文件的Digester\n\n
+
+
+Catalina -> Catalina++:  createStartDigester()
+    note right
+    创建用来解析server.xml文件的Digester
+    end note
+
+    Catalina -> Digester++: new Digester()
+    Catalina <-- Digester--: 返回digester
+
+    Catalina -> Digester++: digester.setFakeAttributes(fakeAttributes);\n digester.setUseContextClassLoader(true);
+    note right
+    1. Ignore className on all elements
+    2. Ignore attribute added by Eclipse for its internal tracking
+    3. Ignore Connector attribute used internally but set on Server
+    end note
+    Catalina <-- Digester--
+
+    Catalina -> Digester++:
+    note right
+    digester.addObjectCreate: 添加对象创建规则：
+        pattern表示匹配的元素,
+        className表示要创建的对象的类名,
+        attributeName表示元素中对应的属性（如果有配置取配置值覆盖className);
+
+        比如server.xml中：
+        <Server port="8005" shutdown="SHUTDOWN">...</Server>
+        对应的：digester.addObjectCreate("Server",
+             "org.apache.catalina.core.StandardServer", "className");
+        会创建org.apache.catalina.core.StandardServer对象
+
+    digester.addSetProperties: 添加设置属性规则:
+        pattern表示匹配的元素
+
+    digester.addSetNext: 添加set next规则：
+        pattern表示匹配的元素,
+        methodName父元素要调用的方法,
+        paramType方法对应的参数类型
+    比如digester.addSetNext("Server", "setServer",
+        "org.apache.catalina.Server");
+    表示要调用Catalina.setServer(Server server)方法,Catalina是Server的父元素
+
+
+    end note
+    Catalina <-- Digester--
+
+Catalina <-- Catalina--:  Digester digester
+@enduml

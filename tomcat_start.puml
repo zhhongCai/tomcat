@@ -1,5 +1,9 @@
 @startuml
 
+header tomcat-9.0.30
+
+title tomcat 启动过程
+
 actor App
 App -> Bootstrap++: main()
   Bootstrap -> Bootstrap++: new Bootstrap(),init(),设置daemon
@@ -38,12 +42,15 @@ App -> Bootstrap++: main()
                 Catalina -> Catalina++:  createStartDigester()
                     note left
                     创建用来解析server.xml文件的Digester
+
+                    见tomcat_load_createStartDigester.puml
                     end note
                 Catalina <-- Catalina--:  Digester digester
 
                 Catalina -> Digester++: digester.push(this);parse(inputSource)
                     note left
-                    解析server.xml文件
+                    解析server.xml文件,创建对应的类
+
                     end note
                 deactivate Digester
 

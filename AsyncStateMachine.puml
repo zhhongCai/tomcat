@@ -1,0 +1,64 @@
+@startuml
+
+header tomcat-9.0.30
+
+title 异步请求的状态转移AsyncStateMachine
+
+[*] -> DISPATCHED
+DISPATCHED --> STARTING: startAsync()
+DISPATCHED --> DISPATCHED: timeout()
+MUST_COMPLETE --> DISPATCHED: post()
+MUST_DISPATCH --> DISPATCHED: dispatched() / post()
+COMPLETING --> DISPATCHED: post()
+DISPATCHED --> DISPATCHING: dispatched()
+
+STARTING --> MUST_COMPLETE: ST-complete()
+STARTING --> COMPLETE_PENDING: OT-complete()
+STARTING --> DISPATCH_PENDING: OT-dispatch()
+STARTING --> MUST_DISPATCH : OT-dispatch()()
+STARTING --> MUST_ERROR : error()
+STARTING --> STARTED : post()
+
+STARTED --> COMPLETING: complete()
+STARTED --> TIMING_OUT: timeout()
+STARTED --> READ_WRITE: asyncOperation()
+READ_WRITE --> STARTED: post()
+STARTED --> DISPATCHING: dispatch()
+STARTED --> STARTED: post()
+
+
+TIMING_OUT --> COMPLETING: complete()
+TIMING_OUT --> DISPATCHING: dispatch()
+
+ERROR --> COMPLETING: complete()
+ERROR --> DISPATCHING: dispatch()
+
+MUST_ERROR --> MUST_COMPLETE: complete()
+COMPLETE_PENDING -->  COMPLETING: post()
+DISPATCH_PENDING -->  DISPATCHING: post()
+DISPATCHING --> DISPATCHING: timeout()
+
+READ_WRITE -->  DISPATCHING: dispatch()
+READ_WRITE -->  COMPLETING: complete()
+COMPLETING -->  COMPLETING: timeout()
+MUST_ERROR -->  MUST_DISPATCH: dispatch()
+
+ERROR --> [*]
+
+DISPATCHED: 标准请求，非异步模式
+STARTING: Servlet.service()中ServletRequest.startAsync()\n已被调用,但service()还没退出
+STARTED: Servlet.service()中ServletRequest.startAsync()\n已被调用，且service()已退出
+READ_WRITE: 正在执行异步读或写操作
+MUST_COMPLETE: 在单次的Servlet.service()方法中ServletRequest.startAsync()\n(complete()方法紧随其后)已被调用,complete()\n方法也将在Servlet.service()退出后立即被调用.
+COMPLETE_PENDING: Servlet.service()中ServletRequest.startAsync()\n已被调用,但在service()退出前,complete()\n也被其他线程调用了.complete()方法将在\nServlet.service()方法退出后处理
+COMPLETING: 请求是STARTED状态时立即调用complete()方法
+TIMING_OUT: 异步请求已经超时,等待调用complete()\n或dispatch()方法.如果没有被调用将进入ERROR状态
+MUST_DISPATCH: 在单次的Servlet.service()方法中ServletRequest.startAsync()\n(dispatch()方法紧随其后)已被调用,dispatch()\n方法也将在Servlet.service()退出后立即被调用.
+DISPATCH_PENDING: Servlet.service()中ServletRequest.startAsync()\n已被调用,但在service()退出前,dispatch()\n也被其他线程调用了.dispatch()方法将在\nServlet.service()方法退出后处理
+DISPATCHING: 分发即将被处理
+MUST_ERROR: Servlet.service()中ServletRequest.startAsync()\n已被调用,但在service()退出前,\n另一个线程出现I/O错误.容器在Servlet.service\n退出时将进行必要的错误处理
+ERROR: Something went wrong.所有状态都有到ERROR
+
+note "ST: the Servlet.service() thread \n OT: any other thread" as ps
+
+@enduml

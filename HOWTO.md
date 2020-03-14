@@ -40,11 +40,12 @@
 
 ```text
      #VM options
+     #TOMCAT_SOURCE_HOME=tomcat源码根目录(ant release执行成功后生成)
 
-    -Dcatalina.home=/Users/caizh/github/tomcat/output/dist
-    -Dcatalina.base=/Users/caizh/github/tomcat/output/dist
-    -Djava.io.tmpdir=/Users/caizh/github/tomcat/output/dist/temp
+    -Dcatalina.home=${TOMCAT_SOURCE_HOME}/output/dist
+    -Dcatalina.base=${TOMCAT_SOURCE_HOME}/output/dist
+    -Djava.io.tmpdir=${TOMCAT_SOURCE_HOME}/output/dist/temp
     -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager
-    -Djava.util.logging.config.file/Users/caizh/github/tomcat/output/dist/conf/logging.properties
+    -Djava.util.logging.config.file=${TOMCAT_SOURCE_HOME}/output/dist/conf/logging.properties
 
 ```

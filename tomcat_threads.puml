@@ -9,7 +9,8 @@ component "StandardServer\n\n" as server {
         [Thread: Catalina-utility-2]
     }
     note top  of utilityExecutor
-    创建时机: StandardServer.initInternal() ->
+    创建时机:
+        StandardServer.initInternal() ->
         StandardServer.reconfigureUtilityExecutor(
             getUtilityThreadsInternal(utilityThreads))
 
@@ -41,15 +42,18 @@ component "StandardServer\n\n" as server {
             [Thread: http-nio-8080-exec-10]
         }
         note top of executor
-        创建时机: NioEndpoint.startInternal() -> NioEndpoint -> createExecutor()
-        用途: 处理请求: Poller.processKey(selectionKey, socketWrapper) ->
+        创建时机:
+            NioEndpoint.startInternal() -> NioEndpoint -> createExecutor()
+        用途:
+            处理请求: Poller.processKey(selectionKey, socketWrapper) ->
             AbstractEndpoint.processSocket() ->
             AbstractEndpoint.getExecutor().execute(SocketProcessorBase sc);
         end note
 
         [Poller线程: http-nio-8080-ClientPoller] as poller
         note top of poller
-        创建时机: NioEndpoint.startInternal()
+        创建时机:
+            NioEndpoint.startInternal()
         用途:
             轮询器: 负责处理Acceptor成功accept时移交的socket:
             poller.register(channel, socketWrapper)
@@ -64,8 +68,10 @@ component "StandardServer\n\n" as server {
 
         [Acceptor线程: http-nio-8080-Acceptor] as acceptor
         note top of acceptor
-        创建时机: NioEndpoint.startInternal() -> NioEndpoint.startAcceptorThread()
-        用途: accept收到的连接(默认最大连接数8*1024,超过将阻塞(LimitLatch：
+        创建时机:
+            NioEndpoint.startInternal() -> NioEndpoint.startAcceptorThread()
+        用途:
+            accept收到的连接(默认最大连接数8*1024,超过将阻塞(LimitLatch：
             connectionLimitLatch实现),直到有连接关闭才继续处理),
             将accept成功的socket移交给对应处理器:
             endpoint.setSocketOptions(socket)
@@ -73,9 +79,10 @@ component "StandardServer\n\n" as server {
 
         [BlockPoller线程: http-nio-8080-BlockPoller]  as blockPoller
         note top of blockPoller
-        创建时机: NioEndpoint.init()-> NioEndpoint.bind() ->
-        selectorPool.open(getName()) ->
-        blockingSelector.open(name, getSharedSelector());
+        创建时机:
+            NioEndpoint.init()-> NioEndpoint.bind() ->
+            selectorPool.open(getName()) ->
+            blockingSelector.open(name, getSharedSelector());
         用途:
         end note
     }

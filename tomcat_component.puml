@@ -1,0 +1,151 @@
+@startuml
+header tomcat-9.0.30
+
+title tomcat中的组件(默认server.xml时)
+
+component "Catalina\n\n" as catalina {
+    component StandardServer\n\n as server {
+        component "StandardService\n\n" as standardService {
+            [Connector] as httpConnector
+            note top of httpConnector
+            port="8080"
+            protocol="HTTP/1.1"
+            connectionTimeout="20000"
+            redirectPort="8443"
+            end note
+
+            [Connector] as ajpConnector
+            note top of ajpConnector
+            port="8009"
+            protocol="AJP/1.3"
+            redirectPort="8443"
+            end note
+
+            component "StandardEngine\n\n" as engine {
+                component "Realm" as realm {
+                    [Realm]
+                }
+
+                component "StandardHost\n\n" as host {
+                    [Valve: AccessLogValve]  as valve
+                    note top of valve
+                    className="org.apache.catalina.valves.AccessLogValve"
+                    directory="logs"
+                    prefix="localhost_access_log"
+                    suffix=".txt"
+                    pattern="%h %l %u %t &quot;%r&quot; %s %b"
+                    end note
+
+                    [StandardContext: ""] as context
+                    [StandardContext: "/manager"]
+                    [StandardContext: "/host-manager"]
+                    [StandardContext: "/docs"]
+                    component "StandardContext: '/examples'\n" as examples {
+                        [StandardWrapper]
+                    }
+
+                    note top of examples
+                    pipeline:
+                        basic: StandardContextValve
+                        first: FormAuthenticator -> StandardContextValve
+
+                    lifecycleListeners:
+                        ContextConfig
+                        standardHost$MemoryLeakTrackingListener
+                        ThreadLocalLeakPreventionListener
+                        NamingContextListener
+                        MapperListener
+                    children:
+                        StandardWrapper,可以有多个
+                    end note
+                }
+                note top of host
+                name="localhost"
+                appBase="webapps"
+                unpackWARs="true"
+                autoDeploy="true"
+
+                configClass: org.apache.catalina.startup.ContextConfig
+                contextClass: org.apache.catalina.core.StandardContext
+
+                children:
+                    "": StandardContext
+                    "/examples": StandardContext
+                    "/host-manager": StandardContext
+                    "/manager": StandardContext
+                    "/docs": StandardContext
+
+                lifecycleListeners:
+                    HostConfig
+                    ContextConfig$HostWebXmlCacheCleaner
+                    MapperListener
+
+                pipeline:
+                    basic: StandardHostValve
+                    first: AccessLogValve -> ErrorReportValve -> StandardHostValve ->
+
+                可以有多个Host
+                end note
+            }
+            note top of engine
+            listeners:
+                ThreadLocalLeakPreventionListener
+                MapperListener
+
+            pipeline:
+                StandardPipeline
+                    basic:  StandardEngineValve
+            realm:
+                LockOutRealm
+            mserver:
+                JmxMBeanServer
+            lifecycleListeners:
+                EngineConfig
+                MapperListener
+            childre:
+                key-value: "localhost" -> StandardHost
+            end note
+        }
+        note top of standardService
+        connectors:
+            Connector,可以有多个
+        engine:
+            StandardEngine
+        Mapper:
+            hosts:
+                Mapper$MappedHost,可以有多个
+            contextObjectToContextVersionMap:
+                /host-manager:  "StandardEngine[Catalina].StandardHost[localhost].StandardContext[/host-manager]"->Mapper$ContextVersion
+                /examples:  "StandardEngine[Catalina].StandardHost[localhost].StandardContext[/examples]"->Mapper$ContextVersion
+                /manager:  "StandardEngine[Catalina].StandardHost[localhost].StandardContext[/manager]"->Mapper$ContextVersion
+                "":  "StandardEngine[Catalina].StandardHost[localhost].StandardContext[]"->Mapper$ContextVersion
+                /do:  "StandardEngine[Catalina].StandardHost[localhost].StandardContext[/doc]"->Mapper$ContextVersion
+        mapperListener:
+            MapperListener
+
+        end note
+    }
+    note top of server
+    lifecycleListeners:
+        NamingContextListener
+        VersionLoggerListener
+        AprLifecycleListener
+        JreMemoryLeakPreventionListener
+        GlobalResourcesLifecycleListener
+        ThreadLocalLeakPreventionListener
+
+    mserver:
+        JmxMBeanServer
+
+    globalNamingResources:
+        Resource,可以有多个resource
+
+    services:
+        StandardService,可以有多个StandardService
+    end note
+}
+
+note top of catalina
+configFile="config/server.xml"
+end note
+@enduml
