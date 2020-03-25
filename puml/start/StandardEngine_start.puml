@@ -45,6 +45,9 @@ StandardService -> StandardEngine++: engine.start()
                 ContainerBase ->  StandardHost++: children[i]).start()
                     note left
                     pipeline中添加errorValve(org.apache.catalina.valves.ErrorReportValve，如果不存在)
+
+                    详见StandardHost_start.puml
+
                     end note
                     StandardHost -> ContainerBase++: super.startInternal()
                     StandardHost <-- ContainerBase--

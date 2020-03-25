@@ -1,0 +1,58 @@
+@startuml
+
+header tomcat-9.0.30
+
+title Lifecycle,LifecycleBase(模板方法模式)
+
+interface Lifecycle {
+    + void addLifecycleListener(LifecycleListener listener)
+    + findLifecycleListeners() LifecycleListener[]
+    + void removeLifecycleListener(LifecycleListener listener)
+    + void init() throws LifecycleException
+    + void start() throws LifecycleException
+    + void stop() throws LifecycleException
+    + void destroy() throws LifecycleException
+    + getState() LifecycleState
+    + getStateName() String
+}
+note top of Lifecycle
+生命周期接口
+end note
+
+abstract class LifecycleBase implements Lifecycle {
+    - final List<LifecycleListener> lifecycleListeners = new CopyOnWriteArrayList<>()
+    - volatile LifecycleState state = LifecycleState.NEW
+
+    # void fireLifecycleEvent(String type, Object data)
+
+    + final synchronized void init() throws LifecycleException
+    # abstract void initInternal() throws LifecycleException
+
+    + final synchronized void start() throws LifecycleException
+    # abstract void startInternal() throws LifecycleException
+
+    + final synchronized void stop() throws LifecycleException
+    # abstract void stopInternal() throws LifecycleException
+
+    + final synchronized void destroy() throws LifecycleException
+    # abstract void destroyInternal() throws LifecycleException
+
+    # synchronized void setState(LifecycleState state) throws LifecycleExceptions
+    # synchronized void setState(LifecycleState state, Object data) throws LifecycleException
+}
+note top of LifecycleBase
+主要功能：
+生命周期事件监听器
+维护当前状态(volatile)
+当状态变化是触发对应的生命周期事件
+
+模板方法：
+    final同步方法init(),子类实现initInternal()
+    final同步方法start(),子类实现startInternal()
+    final同步方法stop(),子类实现stopInternal()
+    final同步方法destroy(),子类实现destroyInternal()
+
+
+end note
+
+@enduml

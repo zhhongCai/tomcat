@@ -1,0 +1,53 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--StandardHost start()
+
+StandardHost -> ContainerBase++: startInternal()
+    ContainerBase -> LifecycleBase++: setState(LifecycleState.STARTING);
+        LifecycleBase -> LifecycleBase++: fireLifecycleEvent(lifecycleEvent, data)
+        LifecycleBase -> HostConfig++: start();
+        HostConfig -> HostConfig++: deployApps()
+        HostConfig -> HostConfig++: deployDirectories()
+        HostConfig -> HostConfig++: config.deployDirectory(cn, dir)
+        note right
+            context = new StandardContext();
+            添加生命周期事件监听器
+            context.addLifecycleListener(new ContextConfig()
+        end note
+            HostConfig ->  StandardHost++:  host.addChild(context)
+            note right
+            添加context到host中
+            end note
+            StandardHost -> ContainerBase++: super.addChild(child)
+            ContainerBase -> ContainerBase++: addChildInternal(child)
+
+            ContainerBase -> ContainerBase++:  fireContainerEvent(ADD_CHILD_EVENT, child)
+            ContainerBase <--  ContainerBase--
+
+            ContainerBase -> ContainerBase++:   child.start()
+            ContainerBase -> LifecycleBase++:   start()
+            LifecycleBase -> StandardContext++:   startInternal()
+            note right
+
+            见StandardContext_start.puml
+
+            end note
+            LifecycleBase <--  StandardContext--
+            ContainerBase <--  LifecycleBase--
+            ContainerBase <--  ContainerBase--
+            ContainerBase <--  ContainerBase--
+            StandardHost <--  ContainerBase--
+            HostConfig <--  StandardHost--
+
+        HostConfig <-- HostConfig--
+        HostConfig <-- HostConfig--
+        HostConfig <-- HostConfig--
+        LifecycleBase <-- HostConfig--
+        LifecycleBase <-- LifecycleBase--
+    ContainerBase <-- LifecycleBase--
+StandardHost <-- ContainerBase--
+
+
+@enduml

@@ -1,0 +1,146 @@
+@startuml
+
+interface ContainerListener {
+    + void containerEvent(ContainerEvent event)
+}
+
+interface LifecycleListener {
+    + void lifecycleEvent(LifecycleEvent event)
+}
+
+class AprLifecycleListener implements LifecycleListener {
+}
+note top of AprLifecycleListener
+处理的事件:
+    Lifecycle.BEFORE_INIT_EVENT: 初始化apr
+    Lifecycle.AFTER_DESTROY_EVENT: 销毁apr
+end note
+
+
+class ContextConfig implements LifecycleListener {
+
+}
+note top of ContextConfig
+针对Context的启动事件监听器,负责配置Context的属性和关联定义的servlets
+
+处理的事件:
+    Lifecycle.CONFIGURE_START_EVENT: configureStart()
+    Lifecycle.BEFORE_START_EVENT: beforeStart()
+    Lifecycle.AFTER_START_EVENT: context.setDocBase(originalDocBase);
+    Lifecycle.CONFIGURE_Sbottom_EVENT: configureSbottom()
+    Lifecycle.AFTER_INIT_EVENT: init()
+    Lifecycle.AFTER_DESTROY_EVENT: destroy()
+
+end note
+
+class DefaultWebXmlListener implements LifecycleListener {
+}
+note bottom of DefaultWebXmlListener
+Tomcat内部静态类,当context重新载入了,它的程序配置属性就丢失了.
+DefaultWebXmlListener设置与conf/web.xml相同的配置当context启动时
+
+处理的事件:
+    Lifecycle.BEFORE_START_EVENT: initWebappDefaults((Context) event.getLifecycle());
+end note
+
+class EngineConfig implements LifecycleListener {
+}
+note bottom of EngineConfig
+针对Engine的启动事件监听器,负责配置Engine的属性和关联定义的contexts.
+
+处理的事件:
+    Lifecycle.START_EVENT: start() 仅仅打印日志
+    Lifecycle.Sbottom_EVENT:  sbottom() 仅仅打印日志
+end note
+
+class HostConfig implements LifecycleListener {
+}
+note bottom of HostConfig
+针对Host的启动事件监听器,负责配置Host的属性和关联定义的contexts.
+
+处理的事件:
+    Lifecycle.PERIODIC_EVENT: check(),检查资源,自动部署时部署应用deployApps()
+    Lifecycle.BEFORE_START_EVENT: beforeStart()
+    Lifecycle.START_EVENT: start()->deployApps()
+    Lifecycle.STOP_EVENT: stop()
+
+end note
+
+class ExpandedDirectoryRemovalListener implements LifecycleListener {
+}
+note bottom of ExpandedDirectoryRemovalListener
+HostConfig内部私有静态类
+在context停止时,删除解压的war文件
+
+处理的事件:
+    Lifecycle.AFTER_STOP_EVENT
+
+end note
+
+
+class FixContextListener implements LifecycleListener {
+}
+note bottom of FixContextListener
+Tomcat内部静态类
+The start() method in context will set 'configured' to false - and
+expects a listener to set it back to true.
+
+处理的事件:
+    Lifecycle.CONFIGURE_START_EVENT
+
+end note
+
+abstract class FrameworkListener implements LifecycleListener, ContainerListener {
+}
+note top of FrameworkListener
+必须在server.xml配置未Server的一个listener,它会注册到所有contexts的生命周期监听器里.
+另一种更加灵活的方式往context.xml里添加监听器
+
+处理的事件:
+    Lifecycle.BEFORE_START_EVENT
+
+    Container.ADD_CHILD_EVENT
+    Container.REMOVE_CHILD_EVENT
+end note
+
+class GlobalResourcesLifecycleListener implements LifecycleListener {
+}
+note top of GlobalResourcesLifecycleListener
+实例化全局JNDI资源关联的MBeans
+
+处理的事件:
+    Lifecycle.START_EVENT: createMBeans()
+    Lifecycle.STOP_EVENT: destroyMBeans()
+end note
+
+class HeartbeatListener implements LifecycleListener {
+}
+note top of HeartbeatListener
+Listener to provider informations to mod_heartbeat.c
+集群机器间心跳？
+end note
+
+class MapperListener extends LifecycleMBeanBase implements ContainerListener, LifecycleListener {
+}
+note top of MapperListener
+
+处理的事件:
+    Lifecycle.AFTER_START_EVENT:
+    Lifecycle.BEFORE_STOP_EVENT:
+
+    Container.ADD_CHILD_EVENT
+    Container.REMOVE_CHILD_EVENT
+    Container.ADD_ALIAS_EVENT
+    Container.REMOVE_ALIAS_EVENT
+    Container.ADD_MAPPING_EVENT
+    Container.REMOVE_MAPPING_EVENT
+    Container.ADD_WELCOME_FILE_EVENT
+    Container.REMOVE_WELCOME_FILE_EVENT
+    Container.CLEAR_WELCOME_FILES_EVENT
+
+end note
+
+abstract class LifecycleBase implements Lifecycle {
+}
+
+@enduml

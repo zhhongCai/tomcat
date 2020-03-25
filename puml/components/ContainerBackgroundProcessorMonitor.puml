@@ -1,0 +1,138 @@
+@startuml
+
+header tomcat-9.0.30
+
+title start 后台周期延迟任务\n\n
+
+ContainerBase -> ContainerBase++: startInternal()
+note right
+创建延迟任务
+monitorFuture = Container.getService(ContainerBase.this).getServer()
+    .getUtilityExecutor().scheduleWithFixedDelay(
+            new ContainerBackgroundProcessorMonitor(), 0, 60, TimeUnit.SECONDS);
+end note
+deactivate ContainerBase
+
+group "ContainerBackgroundProcessorMonitor延迟任务"
+...每隔60秒...
+ContainerBackgroundProcessorMonitor -> ContainerBase++: threadStart()
+activate ContainerBackgroundProcessorMonitor
+note right
+创建延迟任务
+backgroundProcessorFuture = Container.getService(this).getServer().getUtilityExecutor()
+        .scheduleWithFixedDelay(new ContainerBackgroundProcessor(),
+                backgroundProcessorDelay, backgroundProcessorDelay,
+                TimeUnit.SECONDS);
+end note
+ContainerBackgroundProcessorMonitor <-- ContainerBase--
+deactivate ContainerBackgroundProcessorMonitor
+end group
+
+group "后台处理延迟任务"
+...\t\t每隔60秒...
+ContainerBackgroundProcessor -> ContainerBackgroundProcessor++: processChildren(ContainerBase.this)
+activate ContainerBackgroundProcessor
+
+activate ContainerBackgroundProcessor
+ContainerBackgroundProcessor -> Container++: container.backgroundProcess();
+ContainerBackgroundProcessor <-- Container--
+deactivate ContainerBackgroundProcessor
+
+loop child in container.findChildren()
+ContainerBackgroundProcessor -> ContainerBackgroundProcessor++: processChildren(children[i])
+ContainerBackgroundProcessor <-- ContainerBackgroundProcessor--:
+end loop
+
+note right
+调用container及其children的backgroundProcess()方法
+设计到的有：
+ContainerBase.backgroundProcess()
+FailedContext.backgroundProcess()
+StandardContext.backgroundProcess()
+StandardWrapper.backgroundProcess()
+end note
+ContainerBackgroundProcessor <-- ContainerBackgroundProcessor--
+deactivate ContainerBackgroundProcessor
+end group
+
+newpage ContainerBase.backgroundProcess()\n\n
+
+ContainerBackgroundProcessor -> ContainerBase++: container.backgroundProcess()
+ContainerBase -> SimpleTcpCluster++: cluster非空,调用cluster.backgroundProcess()
+note right
+clusterDeployer.backgroundProcess()
+
+channel.heartbeat()
+
+fireLifecycleEvent(Lifecycle.PERIODIC_EVENT, null)
+end note
+ContainerBase <-- SimpleTcpCluster--
+
+ContainerBase -> Realm++: realm非空,调用realm.backgroundProcess()
+note right
+例子:
+UserDatabaseRealm.backgroundProcess() => database.backgroundProcess()
+end note
+ContainerBase <-- Realm--
+
+ContainerBase -> Valve++:  current非空,调用current.backgroundProcess()
+note right
+例子:
+AccessLogValve.backgroundProcess()
+end note
+ContainerBase <-- Valve--
+
+ContainerBase -> ContainerBase++: fireLifecycleEvent(Lifecycle.PERIODIC_EVENT, null)
+ContainerBase <-- ContainerBase--
+
+ContainerBackgroundProcessor <-- ContainerBase--
+
+newpage FailedContext.backgroundProcess()\n\n
+note right
+无操作
+end note
+
+newpage StandardContext.backgroundProcess()\n\n
+
+StandardContext -> Loader++: loader非空,调用loader.backgroundProcess();
+note right
+例子:
+WebappLoader.backgroundProcess() =>  context.reload();
+end note
+StandardContext <-- Loader--
+
+StandardContext -> ManagerBase++: manager非空,调用manager.backgroundProcess();
+note right
+设置过期session失效
+ManagerBase.backgroundProcess() => processExpires()
+end note
+StandardContext <-- ManagerBase--
+
+StandardContext -> WebResourceRoot++: resources非空,调用resources.backgroundProcess();
+note right
+StandardRoot.backgroundProcess() => cache.backgroundProcess(); gc();
+end note
+StandardContext <-- WebResourceRoot--
+
+StandardContext -> InstanceManager++: instanceManager非空,调用instanceManager.backgroundProcess();
+note right
+DefaultInstanceManager.backgroundProcess() => annotationCache.maintain()
+end note
+StandardContext <-- InstanceManager--
+
+StandardContext -> ContainerBase++: super.backgroundProcess()
+StandardContext <-- ContainerBase--
+
+
+newpage StandardWrapper.backgroundProcess()\n\n
+
+StandardWrapper -> ContainerBase++: super.backgroundProcess()
+StandardWrapper <-- ContainerBase--
+
+StandardWrapper -> PeriodicEventListener++: ((PeriodicEventListener) getServlet()).periodicEvent()
+note right
+JspServlet.periodicEvent() =>  rctxt.checkUnload(); rctxt.checkCompile();
+end note
+StandardWrapper <-- PeriodicEventListener--
+
+@enduml
