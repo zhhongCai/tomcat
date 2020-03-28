@@ -1,0 +1,207 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--ContextConfig lifecycleEvent()
+
+activate lifecycleBase
+lifecycleBase -> ContextConfig++: listener.lifecycleEvent(event)
+
+opt "收到Lifecycle.CONFIGURE_START_EVENT"
+    ContextConfig -> ContextConfig++: configureStart();
+    ContextConfig <-- ContextConfig--
+else opt "收到Lifecycle.BEFORE_START_EVENT"
+    ContextConfig -> ContextConfig++: beforeStart();
+    ContextConfig <-- ContextConfig--
+else opt "收到Lifecycle.AFTER_START_EVENT"
+    ContextConfig -> ContextConfig++: context.setDocBase(originalDocBase)
+    ContextConfig <-- ContextConfig--
+else opt "收到Lifecycle.CONFIGURE_STOP_EVENT"
+    ContextConfig -> ContextConfig++: configureStop();
+    ContextConfig <-- ContextConfig--
+else opt "收到Lifecycle.AFTER_INIT_EVENT"
+    ContextConfig -> ContextConfig++: init();
+    ContextConfig <-- ContextConfig--
+else opt "收到Lifecycle.AFTER_DESTROY_EVENT"
+    ContextConfig -> ContextConfig++: destroy();
+    ContextConfig <-- ContextConfig--
+end opt
+lifecycleBase <-- ContextConfig--
+deactivate lifecycleBase
+
+
+
+newpage  ContextConfig.configureStart()\n\n
+
+ContextConfig -> ContextConfig++: configureStart()
+    ContextConfig -> ContextConfig++: webConfig()
+    note right
+    扫描应用的web.xml文件,按一定规则合并web.xml,相同属性优先级：
+    应用web.xml > 大于host level或全局web.xml
+
+    此处需要了解下servlet4.0： https://jcp.org/aboutJava/communityprocess/final/jsr369/index.html
+
+    end note
+        ContextConfig -> WebXmlParser++: new WebXmlParser(context.getXmlNamespaceAware(),\n context.getXmlValidation(), context.getXmlBlockExternal())
+            note right
+            创建解析web.xml的Digester,使用new WebRuleSet(false):
+                webDigester = DigesterFactory.newDigester(validation,
+                                namespaceAware, webRuleSet, blockExternal);
+                webDigester.getParser()
+
+            创建解析web-fragment.xml的Digester,使用new WebRuleSet(true):
+                webFragmentDigester = DigesterFactory.newDigester(validation,
+                                namespaceAware, webFragmentRuleSet, blockExternal);
+                webFragmentDigester.getParser()
+            end note
+        ContextConfig <-- WebXmlParser--
+
+        ContextConfig -> ContextConfig++: getDefaultWebXmlFragment(webXmlParser)
+            note right
+            webXmlParser解析conf/web.xml,创建全局WebXml
+            end note
+        ContextConfig <-- ContextConfig--
+
+        ContextConfig -> ContextConfig++: getTomcatWebXmlFragment(webXmlParser)
+            note right
+            webXmlParser解析/WEB-INF/tomcat-web.xml,创建tomcat WebXml
+            end note
+        ContextConfig <-- ContextConfig--
+
+        ContextConfig -> ContextConfig++: getContextWebXmlSource(webXmlParser);\n webXmlParser.parseWebXml(contextWebXml, webXml, false)
+            note right
+            webXmlParser解析/WEB-INF/web.xml,创建context WebXml
+            end note
+        ContextConfig <-- ContextConfig--
+
+        ContextConfig -> ContextConfig++:  Map<String,WebXml> fragments = processJarsForWebFragments(webXml, webXmlParser)
+            note right
+            定位应用打包的jar包(/WEB-INF/lib/下)和container提供的jar包.如果应用的jar包中
+            有/META-INF/web-fragment.xml,解析这个xml.忽略容器中的web-fragment.xml
+            end note
+        ContextConfig <-- ContextConfig--
+
+
+        opt "ok"
+            ContextConfig -> ContextConfig++: processServletContainerInitializers()
+                note right
+                加载jar包中配置的ServletContainerInitializer.class,
+                比如jar:file:output/dist/lib/tomcat-websocket.jar!/META-INF/services/javax.servlet.ServletContainerInitializer
+                配置的为org.apache.tomcat.websocket.server.WsSci
+
+                detectedScis = loader.load(ServletContainerInitializer.class);
+
+                解析sci(in detectedScis中)的HandlesTypes注解的值, 之后在StandardContext.startInternal()
+                方法中调用 entry.getKey().onStartup(entry.getValue(),getServletContext())使用
+                key为ServletContainerInitializer,value为ServletContainerInitializer上HandlesTypes注解的值
+                end note
+            ContextConfig <-- ContextConfig--
+        end opt
+
+        opt "!webXml.isMetadataComplete() || typeInitializerMap.size() > 0"
+            ContextConfig -> ContextConfig++: processClasses(webXml, orderedFragments)
+                note right
+                Process /WEB-INF/classes for annotations and  @HandlesTypes matches
+
+                Process JARs for annotations and @HandlesTypes matches
+                - only need to process those fragments we  are going to use
+                (remember orderedFragments includes any container fragments)
+
+                解析处理jar中的含有@WebServlet,@WebFilter,@WebListener 注解的类：
+                processClass(fragment, clazz)添加合并到fragment中
+                end note
+            ContextConfig <-- ContextConfig--
+        end opt
+
+        ContextConfig -> ContextConfig++:
+            note right
+            合并webXml
+            webXml.merge(tomcatWebXml);
+            webXml.merge(defaults);
+            convertJsps(webXml);
+            configureContext(webXml)
+            end note
+        ContextConfig <-- ContextConfig--
+
+        ContextConfig -> ContextConfig++:  processResourceJARs(resourceJars)
+            note right
+            对于那些有web-fragment.xml文件应用于当前应用的jar包,看看是否有静态资源,
+            如果有添加到context中,按照web-fragment.xml的顺序.
+            end note
+        ContextConfig <-- ContextConfig--
+
+        ContextConfig -> ContextConfig++:  processResourceJARs(resourceJars)
+            note right
+            Apply the ServletContainerInitializer config to the context
+            end note
+        ContextConfig <-- ContextConfig--
+
+    ContextConfig <-- ContextConfig--
+
+    opt "ok"
+    ContextConfig -> ContextConfig++: validateSecurityRoles()
+    ContextConfig <-- ContextConfig--
+    end opt
+
+    opt "ok"
+    ContextConfig -> ContextConfig++: authenticatorConfig()
+    ContextConfig <-- ContextConfig--
+    end opt
+
+ContextConfig <-- ContextConfig--
+
+
+
+
+newpage  ContextConfig.beforeStart()\n\n
+
+ContextConfig -> ContextConfig++: beforeStart()
+    ContextConfig -> ContextConfig++: fixDocBase()
+    note right
+    调整docBase
+    end note
+    ContextConfig <-- ContextConfig--
+
+    ContextConfig -> ContextConfig++: antiLocking()
+    ContextConfig <-- ContextConfig--
+ContextConfig <-- ContextConfig--
+
+
+
+
+newpage  ContextConfig.configureStop()\n\n
+
+ContextConfig -> ContextConfig++: configureStop()
+ContextConfig <-- ContextConfig--
+
+
+
+
+newpage  ContextConfig.init()\n\n
+
+ContextConfig -> ContextConfig++: init()
+    ContextConfig -> ContextConfig++: contextDigester = createContextDigester();\ncontextDigester.getParser()
+    note right
+    StandardContext.init()时调用
+
+    创建解析context的digester并解析:
+    加了两个ruleSet: ContextRuleSet("", false), NamingRuleSet("Context/")
+    end note
+    ContextConfig <-- ContextConfig--
+
+    ContextConfig -> ContextConfig++: contextConfig(contextDigester)
+    note right
+    解析默认的context配置文件
+    end note
+    ContextConfig <-- ContextConfig--
+ContextConfig <-- ContextConfig--
+
+
+
+
+newpage  ContextConfig.destroy()\n\n
+
+ContextConfig -> ContextConfig++: destroy()
+ContextConfig <-- ContextConfig--
+
+@enduml

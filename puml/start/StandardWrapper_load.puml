@@ -1,0 +1,37 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--StandardWrapper load()
+
+StandardContext -> StandardContext++: loadOnStartup(children)
+StandardContext -> StandardWrapper++: load()
+    StandardContext -> StandardWrapper++: instance = loadServlet()
+    note right
+    加载并初始化一个当前wrapper的servlet实例,如果没有已经存在的实例化好的实例。
+    根据servletClass创建实例：
+        servlet = (Servlet) instanceManager.newInstance(servletClass)
+    end note
+
+        StandardWrapper -> StandardWrapper++: initServlet(servlet)
+            StandardWrapper -> Servlet++: servlet.init(facade)
+            StandardContext <-- Servlet--
+        StandardContext <-- StandardWrapper--
+
+        StandardWrapper -> StandardWrapper++: fireContainerEvent("load", this)
+
+        StandardContext <-- StandardWrapper--
+    StandardContext <-- StandardWrapper--
+
+    opt "!instanceInitialized"
+    StandardContext -> StandardWrapper++: initServlet(instance);
+    StandardContext <-- StandardWrapper--
+    end opt
+
+    opt "isJspServlet"
+    StandardContext -> StandardWrapper++: instance = Registry.getRegistry(null, null)\n.registerComponent(instance, jspMonitorON, null)
+    StandardContext <-- StandardWrapper--
+    end opt
+StandardContext <-- StandardWrapper--
+StandardContext <-- StandardContext--
+@enduml

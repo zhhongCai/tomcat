@@ -1,0 +1,179 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--StandardContext start()
+
+StandardContext -> StandardContext++: startInternal()
+    opt this.getObjectName() != null
+    StandardContext -> NotificationBroadcasterSupport++: broadcaster.sendNotification(notification);
+    StandardContext <-- NotificationBroadcasterSupport--
+    end opt
+
+    opt "namingResources != null"
+    StandardContext -> NamingResourcesImpl++: namingResources.start();
+    StandardContext <-- NamingResourcesImpl--
+    end opt
+
+    StandardContext -> StandardContext++: postWorkDirectory();
+    note right
+    如果workDir为空设置workDir: 例如: work/Catalina/localhost/docs
+
+    创建context: context = new ApplicationContext(this)
+
+    设置临时目录到attribute: context.setAttribute(ServletContext.TEMPDIR, dir)
+    end note
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: setResources(new StandardRoot(this))
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: resourcesStart()
+        StandardContext -> LifecycleBase++: start()
+            StandardContext -> StandardRoot++: startInternal()
+            note right
+
+            见StandardRoot_start.puml
+
+            end note
+            StandardContext <-- StandardRoot--
+        StandardContext <-- LifecycleBase--
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: setLoader(webappLoader)
+    note right
+    webappLoader = new WebappLoader(getParentClassLoader())
+    webappLoader.setDelegate(getDelegate())
+    end note
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: cookieProcessor = new Rfc6265CookieProcessor()
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: getCharsetMapper()
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++:  ExtensionValidator.validateApplication(getResources(), this)
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++:  addLifecycleListener(ncl);\nsetNamingContextListener(ncl);
+    note right
+    ncl = new NamingContextListener()
+    end note
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: ClassLoader oldCCL = bindThread()
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: ((Lifecycle) loader).start()
+        StandardContext -> LifecycleBase++: start();
+            LifecycleBase -> WebappLoader++: startInternal()
+            note right
+
+            见WebappLoader_start.puml
+
+            end note
+            LifecycleBase <-- WebappLoader--
+        StandardContext <-- LifecycleBase--
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: fireLifecycleEvent(Lifecycle.CONFIGURE_START_EVENT, null)
+        StandardContext -> StandardConfig++: lifecycleEvent(event)
+            StandardContext -> StandardConfig++: configureStart()
+                StandardConfig -> StandardConfig++: webConfig()
+                note right
+                扫描应用的web.xml文件,按一定规则合并web.xml,相同属性优先级：
+                应用web.xml > 大于host level或全局web.xml
+
+                详见ContextConfig_lifecycleEvent.puml
+
+                end note
+                StandardConfig <-- StandardConfig--
+
+                StandardConfig -> StandardConfig++: applicationAnnotationsConfig()
+                StandardConfig <-- StandardConfig--
+
+                StandardConfig -> StandardConfig++: authenticatorConfig()
+                StandardConfig <-- StandardConfig--
+            StandardContext <-- StandardConfig--
+        StandardContext <-- StandardConfig--
+    StandardContext <-- StandardContext--
+
+    loop child in findChildren(),启动Wrapper
+    StandardContext -> StandardContext++: child.start();
+        StandardContext -> LifecycleBase++: start();
+            LifecycleBase -> StandardWrapper++: startInternal();
+                StandardWrapper -> ContainerBase++: startInternal();
+                StandardWrapper <-- ContainerBase--
+            LifecycleBase <-- StandardWrapper--
+        StandardContext <-- LifecycleBase--
+    StandardContext <-- StandardContext--
+    end loop
+
+    StandardContext -> StandardContext++: ((Lifecycle) pipeline).start()
+        StandardContext -> StandardPipeline++:  ((Lifecycle) pipeline).start();
+        StandardContext <-- StandardPipeline--
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++
+    note right
+    1. Acquire clustered manager,非集群时contextManager = new StandardManager();
+    2. Configure default manager if none was specified
+    3. 如果是集群部署: getCluster().registerManager(manager);
+    4. We put the resources into the servlet context:
+        getServletContext().setAttribute(Globals.RESOURCES_ATTR, getResources());
+    5. Create context attributes that will be required:
+        getServletContext().setAttribute(JarScanner.class.getName(), getJarScanner());
+    6. Set up the context init params: mergeParameters()
+    7. Call ServletContainerInitializers:
+        entry.getKey().onStartup(entry.getValue(),
+                                getServletContext());
+
+        例如：
+        WsSci.onStartup(PojoEndpointServer, getServletContext())
+        WsSci.onStartup(PojoEndpointBase, getServletContext())
+        WsSci.onStartup(PojoEndpointClint, getServletContext())
+    end note
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: listenerStart
+    note right
+    设置上下文的事件监听器:
+    默认添加的：WsContextListener,WsSessionListener
+    其他的根据web.xml配置的<listener/>
+
+    调用类型为ServletContextListener的监听器的contextInitialized(event)方法:
+        listener.contextInitialized(event);
+    此处如果为SpringMVC应用,将开始spring启动过程(web.xml配置了listener:ContextLoaderListener):
+    org.springframework.web.context.ContextLoaderListener.contextInitialized(event)
+
+    Check constraints for uncovered HTTP methods:
+        checkConstraintsForUncoveredMethods(findConstraints());
+
+    Start manager:
+        (Lifecycle) manager).start()
+
+    end note
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: filterStart()
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: loadOnStartup(findChildren())
+    note right
+    加载并初始化在web应用部署描述中标记为"load on startup"的servlet，按loadOnStartup大小顺序
+
+    见StandardWrapper_load.puml
+
+    end note
+    StandardContext <-- StandardContext--
+
+    StandardContext -> StandardContext++: super.threadStart()
+    StandardContext <-- StandardContext--
+
+
+
+StandardContext <-- StandardContext--
+
+
+@enduml

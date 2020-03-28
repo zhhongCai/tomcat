@@ -16,7 +16,77 @@ interface Lifecycle {
     + getStateName() String
 }
 note top of Lifecycle
-生命周期接口
+生命周期接口,具体状态流转见lifecycle.puml
+end note
+
+interface Container extends Lifecycle {
+    + getLogger() Log
+    + getLogName() String
+    + getObjectName() ObjectName
+    + getDomain() String
+    + getMBeanKeyProperties() String
+    + getPipeline() Pipeline
+    + getCluster() Cluster
+    + void setCluster(Cluster cluster)
+    + getBackgroundProcessorDelay() int
+    + void setBackgroundProcessorDelay(int delay)
+    + getName() String
+    + void setName(String name)
+    + getParent() Container
+    + void setParent(Container container)
+    + getParentClassLoader() ClassLoader
+    + void setParentClassLoader(ClassLoader parent)
+    + getRealm() Realm
+    + void setRealm(Realm realm)
+    + static getConfigPath(Container container, String resourceName) String
+    + static getService(Container container) Service
+
+    + void backgroundProcess()
+
+    + void addChild(Container child)
+    + void addContainerListener(ContainerListener listener)
+    + void addPropertyChangeListener(PropertyChangeListener listener)
+    + findChild(String name) Container
+    + findChildren() Container[]
+    + findContainerListeners() ContainerListener[]
+    + void removeChild(Container child)
+    + void removeContainerListener(ContainerListener listener)
+    + void removePropertyChangeListener(PropertyChangeListener listener)
+    + void fireContainerEvent(String type, Object data)
+    + void logAccess(Request request, Response response, long time, boolean useDefault)
+    + getAccessLog() AccessLog
+    + getStartStopThreads() int
+    + void setStartStopThreads(int startStopThreads)
+    + getCatalinaBase() File
+    + getCatalinaHome() File
+}
+note top of Container
+Container是一个处理客户端请求,并返回请求对应的响应的对象.
+Container可以支持Valves管道来处理请求按照运行时配置的顺序,
+这些valve实现了Pipeline接口.
+Container以几种概念级别存在在Catalina中:
+  Engine:
+    表示整个Catalina的servlet engine,通常包含一个或多个
+    子container,可以是Host或Context的实现,或其他自定义分组
+  Host:
+    表示一个虚拟主机包含多个Context
+  Context:
+    表示一个ServletContext,包含一个或多个支持的servlet的Wrapper
+  Wrapper:
+    表示一个单独的servlet定义
+
+Container可以跟一些提供公共(或单独定义)功能的支持组件关联:
+  Loader:
+    类加载器用来加载这个container新的class类到Catalina运行的JVM中
+  Logger:
+    实现ServletContext接口中的log()方法
+  Manager:
+    管理Container关联的session池
+  Realm:
+    一个安全域的只读接口,用来认证用户身份和他们对于的角色
+  Resources:
+    JNDI目录上下文启用静态资源访问,启用客户连接到存在的服务组件当
+    catalina嵌入到一个大的server中时
 end note
 
 abstract class LifecycleBase implements Lifecycle {
@@ -42,9 +112,9 @@ abstract class LifecycleBase implements Lifecycle {
 }
 note top of LifecycleBase
 主要功能：
-生命周期事件监听器
+维护生命周期事件监听器
 维护当前状态(volatile)
-当状态变化是触发对应的生命周期事件
+当状态变化时触发对应的生命周期事件
 
 模板方法：
     final同步方法init(),子类实现initInternal()
@@ -52,7 +122,58 @@ note top of LifecycleBase
     final同步方法stop(),子类实现stopInternal()
     final同步方法destroy(),子类实现destroyInternal()
 
+init():
+    1.判断当前状态是否为LifecycleState.NEW,不为时抛出LifecycleException异常
+    2.设置当前状态为LifecycleState.INITIALIZING: setStateInternal(LifecycleState.INITIALIZING, null, false)
+
+    3.调用initInternal()方法,具体由子类实现
+
+    4.设置当前状态为LifecycleState.INITIALIZED: setStateInternal(LifecycleState.INITIALIZED, null, false)
+
+    其中setStateInternal方法中会触发fireLifecycleEvent(lifecycleEvent, data)
+
+start():
+    1.当前状态为LifecycleState.STARTING_PREP,LifecycleState.STARTING
+      LifecycleState.STARTED时,不做操作立即返回
+    2.当前状态为LifecycleState.NEW时,调用init()方法
+    3.当前状态为LifecycleState.FAILED时,调用stop()方法
+    4.当前状态 不为 LifecycleState.INITIALIZED和LifecycleState.STOPPED时,调用
+      invalidTransition(Lifecycle.BEFORE_START_EVENT)
+    5.设置当前状态为LifecycleState.STARTING_PREP:  setStateInternal(LifecycleState.STARTING_PREP, null, false)
+
+    6.调用startInternal()方法,具体由子类实现
+
+    7.如果当前状态为LifecycleState.FAILED,调用stop()方法
+    8.如果当前状态 不为 LifecycleState.STARTING,调用invalidTransition(Lifecycle.AFTER_START_EVENT)
+    9.设置当前状态为LifecycleState.STARTED:  setStateInternal(LifecycleState.STARTED, null, false)
+
+stop():
+    1.当前状态为LifecycleState.STOPPING_PREP,LifecycleState.STOPPING,
+      LifecycleState.STOPPED时,不做操作立即返回
+    2.当前状态为state.equals(LifecycleState.NEW时,state = LifecycleState.STOPPED; 返回
+    3.当前状态非LifecycleState.STARTED 且 非LifecycleState.FAILED, invalidTransition(Lifecycle.BEFORE_STOP_EVENT);
+    4.当前状态为LifecycleState.FAILED, fireLifecycleEvent(BEFORE_STOP_EVENT, null);
+    5.当前状态为非LifecycleState.FAILED,设置状态setStateInternal(LifecycleState.STOPPING_PREP, null, false);
+
+    6.调用stopInternal()方法，具体由子类实现
+
+    7.当前状态非LifecycleState.STOPPING 且 非LifecycleState.FAILED, invalidTransition(Lifecycle.AFTER_STOP_EVENT);
+    8.设置状态setStateInternal(LifecycleState.STOPPED, null, false);
+
+destroy():
+    1.当前状态为LifecycleState.FAILED,调用stop()方法
+    2.当前状态为LifecycleState.DESTROYING或LifecycleState.DESTROYED,不做操作立即返回
+    3.当前状态非LifecycleState.STOPPED 且 非LifecycleState.FAILED 且 非LifecycleState.NEW
+      且非LifecycleState.INITIALIZED 且非LifecycleState.INITIALIZED, invalidTransition(Lifecycle.BEFORE_DESTROY_EVENT);
+    4.设置状态setStateInternal(LifecycleState.DESTROYING, null, false);
+
+    5.调用destroyInternal()方法,具体由子类实现
+
+    6.设置状态setStateInternal(LifecycleState.DESTROYED, null, false);
 
 end note
+
+abstract class ContainerBase extends LifecycleMBeanBase implements Container  {
+}
 
 @enduml
