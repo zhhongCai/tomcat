@@ -43,7 +43,7 @@ App -> Bootstrap++: main()
                     note left
                     创建用来解析server.xml文件的Digester
 
-                    见tomcat_load_createStartDigester.puml
+                    见Tomcat启动流程_2_load_createStartDigester.puml
                     end note
                 Catalina <-- Catalina--:  Digester digester
 
@@ -67,7 +67,7 @@ App -> Bootstrap++: main()
 
                 Catalina -> StandardServer++: getServer().init();
                     note left
-                    见server_init.puml
+                    见Tomcat启动流程_3_StandardServer_init.puml
                     end note
                 deactivate StandardServer
             deactivate Catalina
@@ -78,7 +78,7 @@ App -> Bootstrap++: main()
         Bootstrap -> Catalina++: start()
             Catalina -> StandardServer++: getServer().start();
                 note left
-                见server_start.puml
+                见Tomcat启动流程_4_StandardServer_start.puml
                 end note
             deactivate StandardServer
         deactivate Catalina

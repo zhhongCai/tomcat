@@ -1,0 +1,68 @@
+@startuml
+
+header tomcat-9.0.30
+
+title Tomcat请求处理流程(NioEndpoint为例)\n\n
+
+group "Engine"
+CoyoteAdapter -> StandardEngineValve++: connector.getService().getContainer()\n.getPipeline().getFirst().invoke(request, response)
+note right
+调用容器的pipeline中的valve,以请求http://localhost:8080/为例:
+StandardEngineValve => AbstractAccessLogValve =>
+ErrorReportValve => StandardHostValve =>
+AuthenticatorBase => StandardContextValve =>
+StandardWrapperValve
+
+最后调ApplicationFilterChain.doFilter执行过滤器链,过滤器链调用结束后调用servlet的service方法
+end note
+
+    group "Host"
+    StandardEngineValve -> AbstractAccessLogValve++: Host host = request.getHost();\nhost.getPipeline().getFirst().invoke(request, response)
+        AbstractAccessLogValve -> ErrorReportValve++: getNext().invoke(request, response)
+            ErrorReportValve -> StandardHostValve++: getNext().invoke(request, response)
+                group "Context"
+                StandardHostValve -> AuthenticatorBase++:  context.getPipeline().getFirst().invoke(request, response)
+                    AuthenticatorBase -> StandardContextValve++:  getNext().invoke(request, response)
+
+                        group "Wrapper"
+                        StandardContextValve -> StandardWrapperValve++:  Wrapper wrapper = request.getWrapper();\n wrapper.getPipeline().getFirst().invoke(request, response)
+                            StandardWrapperValve -> StandardWrapper++: servlet = wrapper.allocate();
+                            note left
+                            分配一个servlet来处理请求
+                            end note
+                            StandardWrapperValve <-- StandardWrapper--
+
+                            StandardWrapperValve -> StandardWrapperValve++: ApplicationFilterChain filterChain = \nApplicationFilterFactory.createFilterChain(request, wrapper, servlet)
+                            note left
+                            创建过滤器调用链
+                            end note
+                            StandardWrapperValve <-- StandardWrapperValve--
+
+                            StandardWrapperValve -> ApplicationFilterChain++: filterChain.doFilter(request.getRequest(), response.getResponse())
+                            note left
+                            调用过滤器链
+
+                            见Tomcat请求处理流程_3.puml
+
+                            end note
+                            StandardWrapperValve <-- ApplicationFilterChain--
+
+                        StandardContextValve <-- StandardWrapperValve--
+                        end group
+                    AuthenticatorBase <-- StandardContextValve--
+                StandardHostValve <-- AuthenticatorBase--
+                end group
+            ErrorReportValve <-- StandardHostValve--
+
+            ErrorReportValve -> StandardHostValve++: report(request, response, throwable);
+            note left
+            如果有错误，报告错误
+            end note
+            ErrorReportValve <-- StandardHostValve--
+        AbstractAccessLogValve <-- ErrorReportValve--
+    StandardEngineValve <-- AbstractAccessLogValve--
+    end group
+CoyoteAdapter <-- StandardEngineValve--
+end group
+
+@enduml

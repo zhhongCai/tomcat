@@ -33,7 +33,7 @@ StandardContext -> StandardContext++: startInternal()
             StandardContext -> StandardRoot++: startInternal()
             note right
 
-            见StandardRoot_start.puml
+            见Tomcat启动流程_12_StandardRoot_start.puml
 
             end note
             StandardContext <-- StandardRoot--
@@ -70,7 +70,7 @@ StandardContext -> StandardContext++: startInternal()
             LifecycleBase -> WebappLoader++: startInternal()
             note right
 
-            见WebappLoader_start.puml
+            见Tomcat启动流程_13_WebappLoader_start.puml
 
             end note
             LifecycleBase <-- WebappLoader--
@@ -85,7 +85,7 @@ StandardContext -> StandardContext++: startInternal()
                 扫描应用的web.xml文件,按一定规则合并web.xml,相同属性优先级：
                 应用web.xml > 大于host level或全局web.xml
 
-                详见ContextConfig_lifecycleEvent.puml
+                详见Tomcat启动流程_14_ContextConfig_lifecycleEvent.puml
 
                 end note
                 StandardConfig <-- StandardConfig--
@@ -163,7 +163,7 @@ StandardContext -> StandardContext++: startInternal()
     note right
     加载并初始化在web应用部署描述中标记为"load on startup"的servlet，按loadOnStartup大小顺序
 
-    见StandardWrapper_load.puml
+    见Tomcat启动流程_15_StandardWrapper_load.puml
 
     end note
     StandardContext <-- StandardContext--

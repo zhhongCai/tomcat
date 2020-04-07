@@ -130,13 +130,18 @@ ContextConfig -> ContextConfig++: configureStart()
             end note
         ContextConfig <-- ContextConfig--
 
-        ContextConfig -> ContextConfig++:  processResourceJARs(resourceJars)
+        ContextConfig -> ContextConfig++:   context.addServletContainerInitializer(entry.getKey(), entry.getValue())
             note right
             Apply the ServletContainerInitializer config to the context
             end note
         ContextConfig <-- ContextConfig--
 
     ContextConfig <-- ContextConfig--
+
+    opt "!context.getIgnoreAnnotations()"
+    ContextConfig -> ContextConfig++: applicationAnnotationsConfig()
+    ContextConfig <-- ContextConfig--
+    end opt
 
     opt "ok"
     ContextConfig -> ContextConfig++: validateSecurityRoles()

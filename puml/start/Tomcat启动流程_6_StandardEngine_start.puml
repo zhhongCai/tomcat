@@ -19,7 +19,7 @@ StandardService -> StandardEngine++: engine.start()
                     end note
                     Cluster -> SimpleTcpCluster++: startInternal()
                         note left
-                            见Cluster_start.puml
+                            见Tomcat启动流程_8_Cluster_start.puml
                         end note
                     Cluster <-- SimpleTcpCluster--
                 ContainerBase <-- Cluster--
@@ -46,7 +46,7 @@ StandardService -> StandardEngine++: engine.start()
                     note left
                     pipeline中添加errorValve(org.apache.catalina.valves.ErrorReportValve，如果不存在)
 
-                    详见StandardHost_start.puml
+                    详见Tomcat启动流程_9_StandardHost_start.puml
 
                     end note
                     StandardHost -> ContainerBase++: super.startInternal()
@@ -97,7 +97,7 @@ StandardService -> StandardEngine++: engine.start()
                   .getUtilityExecutor().scheduleWithFixedDelay(
                           new ContainerBackgroundProcessorMonitor(), 0, 60, TimeUnit.SECONDS);
 
-              见ContainerBackgroundProcessorMonitor.puml
+              见Tomcat启动流程_10_ContainerBackgroundProcessorMonitor.puml
             end note
         StandardEngine <-- ContainerBase--
     StandardEngine <-- StandardEngine--

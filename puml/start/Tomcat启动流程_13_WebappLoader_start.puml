@@ -1,0 +1,44 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--WebappLoader start()\n\n
+
+StandardContext -> StandardContext++: ((Lifecycle) loader).start()
+    StandardContext -> LifecycleBase++: start();
+        LifecycleBase -> WebappLoader++: startInternal()
+            WebappLoader -> WebappLoader++: classLoader = createClassLoader();\nclassLoader.setResources(context.getResources());\n classLoader.setDelegate(this.delegate);
+            note right
+            创建WebappClassLoaderBase: ParallelWebappClassLoader
+            end note
+            WebappLoader -> WebappLoader++:
+
+            WebappLoader -> WebappLoader++: setClassPath()
+            note right
+            Set the appropriate context attribute for our class path.  This
+            is required only because Jasper depends on it.
+            end note
+            WebappLoader -> WebappLoader++:
+
+            WebappLoader -> WebappLoader++: setPermissions()
+            note right
+            Configure associated class loader permissions.
+            end note
+            WebappLoader -> WebappLoader++:
+
+            WebappLoader -> WebappLoaderBase++: classLoader.start()
+            note right
+            localRepositories.add(classes.getURL())
+            localRepositories.add(jar.getURL());
+            jarModificationTimes.put(jar.getName(), Long.valueOf(jar.getLastModified()))
+            end note
+            WebappLoader -> WebappLoaderBase++:
+
+            WebappLoader -> WebappLoader++: Registry.getRegistry(null, null).registerComponent(classLoader, cloname, null)
+            WebappLoader -> WebappLoader++:
+
+        LifecycleBase <-- WebappLoader--
+    StandardContext <-- LifecycleBase--
+StandardContext <-- StandardContext--
+
+@enduml

@@ -31,7 +31,7 @@ StandardHost -> ContainerBase++: startInternal()
             LifecycleBase -> StandardContext++:   startInternal()
             note right
 
-            见StandardContext_start.puml
+            见Tomcat启动流程_11_StandardContext_start.puml
 
             end note
             LifecycleBase <--  StandardContext--

@@ -1,0 +1,75 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--Server start()
+
+activate Catalina
+Catalina -> StandardServer++: getServer().start();
+    StandardServer -> LifecycleBase++: start()
+        LifecycleBase ->LifecycleBase++
+            note right
+                如果server状态为STARTING_PREP or STARTING or STARTED 立即返回
+                如果server状态为NEW: 调用init()
+                如果server状态为FAILED: 调用stop()
+            end note
+        deactivate LifecycleBase
+
+        LifecycleBase -> LifecycleBase++: setStateInternal(LifecycleState.STARTING_PREP, null, false)
+        deactivate LifecycleBase
+
+        LifecycleBase -> StandardServer++: startInternal()
+            StandardServer -> StandardServer++:  fireLifecycleEvent(CONFIGURE_START_EVENT, null)
+            deactivate StandardServer
+
+            StandardServer -> StandardServer++:  setState(LifecycleState.STARTING)
+            deactivate StandardServer
+
+            StandardServer -> NamingResourcesImpl++: globalNamingResources.start()
+                note right
+                    LifecycleBase: start() -> NamingResourcesImpl.startInternal():
+
+                    fireLifecycleEvent(CONFIGURE_START_EVENT, null);
+                    setState(LifecycleState.STARTING);
+                end note
+            deactivate NamingResourcesImpl
+
+            loop service in services
+                StandardServer -> StandardService++: services[i].start()
+                note right
+
+                见 Tomcat启动流程_5_StandardService_start.puml
+
+                end note
+                deactivate StandardService
+            end loop
+
+            StandardServer -> StandardServer++:
+                note right
+                    if periodicEventDelay > 0
+                        monitorFuture = getUtilityExecutor().scheduleWithFixedDelay(
+                                            new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    startPeriodicLifecycleEvent();
+                                                }
+                                            }, 0, 60, TimeUnit.SECONDS);
+                end note
+            deactivate StandardServer
+        LifecycleBase <-- StandardServer--
+
+        opt "status = FAILED"
+            StandardServer -> StandardServer++: stop()
+            deactivate StandardServer
+        else "status = STARTING"
+            LifecycleBase -> LifecycleBase++: invalidTransition(Lifecycle.AFTER_START_EVENT);
+            deactivate LifecycleBase
+        else
+            LifecycleBase -> LifecycleBase++: setStateInternal(LifecycleState.STARTED, null, false)
+            deactivate LifecycleBase
+        end opt
+    deactivate LifecycleBase
+deactivate StandardServer
+
+
+@enduml

@@ -1,0 +1,60 @@
+@startuml
+
+header tomcat-9.0.30
+
+title Tomcat请求处理流程(NioEndpoint为例)\n\n
+
+note right
+
+end note
+
+StandardWrapperValve -> ApplicationFilterChain++: filterChain.doFilter(request.getRequest(), response.getResponse())
+note right
+以请求http://localhost:8080/为例
+调ApplicationFilterChain.doFilter执行过滤器链,过滤器链调用结束后调用servlet的service方法
+end note
+    ApplicationFilterChain -> ApplicationFilterChain++: internalDoFilter(request,response)
+        opt "过滤器调用链还有未执行过滤器"
+            ApplicationFilterChain -> Filter++: filter.doFilter(request, response, this)
+            note right
+            Filter实现中,继续调用下一个过滤器: filterChain.doFilter(request, response)
+            end note
+            ApplicationFilterChain <-- Filter--
+        else
+            ApplicationFilterChain -> DefaultServlet++: servlet.service(request, response)
+            note left
+            servlet处理请求
+            end note
+                DefaultServlet -> HttpServlet++: super.service(req, resp)
+                    opt "GET请求"
+                    HttpServlet -> DefaultServlet++: doGet(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else "HEAD请求"
+                    HttpServlet -> DefaultServlet++: doHead(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else "POST请求"
+                    HttpServlet -> DefaultServlet++: doPost(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else "PUT请求"
+                    HttpServlet -> DefaultServlet++: doPut(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else "DELETE请求"
+                    HttpServlet -> DefaultServlet++: doDelete(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else "OPTIONS请求"
+                    HttpServlet -> DefaultServlet++: doOptions(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else "TRACE请求"
+                    HttpServlet -> DefaultServlet++: doTrace(req, resp);
+                    HttpServlet <-- DefaultServlet--
+                    else
+                    HttpServlet -> DefaultServlet++: resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, errMsg)
+                    HttpServlet <-- DefaultServlet--
+                    end opt
+                DefaultServlet <-- HttpServlet--
+            ApplicationFilterChain <-- DefaultServlet--
+        end opt
+    ApplicationFilterChain <-- ApplicationFilterChain--
+StandardWrapperValve <-- ApplicationFilterChain--
+
+@enduml

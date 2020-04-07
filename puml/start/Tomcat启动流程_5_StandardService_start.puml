@@ -1,0 +1,117 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--Service start()
+
+StandardServer -> StandardService++: services[i].start()
+    note right
+        调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+    end note
+    LifecycleBase -> StandardService++: startInternal()
+        StandardService -> StandardService++: setState(LifecycleState.STARTING)
+        deactivate StandardService
+
+        StandardService -> StandardEngine++: engine.start()
+            note left
+            见Tomcat启动流程_6_StandardEngine_start.puml
+            end note
+        deactivate StandardEngine
+
+        loop executor in executors
+            StandardService -> StandardThreadExecutor++: executor.start()
+                note right
+                    调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+                end note
+
+                StandardThreadExecutor -> StandardThreadExecutor++: startInternal()
+                    note right
+                        创建线程池:
+                        taskqueue = new TaskQueue(Integer.MAX_VALUE)
+                        tf new TaskThreadFactory(namePrefix,daemon,getThreadPriority())
+                        executor = new ThreadPoolExecutor(25, 200, 60000, TimeUnit.MILLISECONDS,
+                              taskqueue, tf);
+
+                        setState(LifecycleState.STARTING);
+                    end note
+                deactivate StandardThreadExecutor
+            deactivate StandardThreadExecutor
+        end loop
+
+        StandardService -> MapperListener++: mapperListener.start()
+            note left
+                调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+            end note
+
+            MapperListener -> MapperListener++
+                note left
+                    setState(LifecycleState.STARTING);
+
+                    Engine engine = service.getContainer();
+                    if (engine == null) {
+                        return;
+                    }
+
+                    findDefaultHost();
+
+                    addListeners(engine);
+                end note
+            deactivate MapperListener
+
+            loop host in engine.findChildren()
+                MapperListener -> MapperListener++: registerHost(host)
+                    loop container in host.findChildren()
+                        MapperListener -> MapperListener++:  registerContext((Context) container)
+                            loop container in context.findChildren()
+                                MapperListener -> MapperListener++:  prepareWrapperMappingInfo(context, (Wrapper) container, wrappers);
+                                    note left
+                                    Populate wrappers list with information for registration of
+                                    mappings for this wrapper in this context.
+                                    end note
+                                deactivate MapperListener
+                            end loop
+                        deactivate MapperListener
+                    end loop
+
+                    MapperListener -> MapperListener++: findDefaultHost();
+                    deactivate MapperListener
+                deactivate MapperListener
+            end loop
+        deactivate MapperListener
+
+        loop connector in connectors
+            StandardService -> Connector++: connector.start()
+                note left
+                    调用LifecycleBase.start()模板方法,模板方法中调用startInternal()
+                end note
+                Connector -> Connector++: setState(LifecycleState.STARTING)
+                deactivate Connector
+
+                Connector -> AbstractProtocolHandler++: protocolHandler.start()
+                    AbstractProtocolHandler -> AbstractEndpoint++: endpoint.start()
+                    opt "bindState == BindState.UNBOUND"
+                        AbstractProtocolHandler -> AbstractProtocolHandler++: bindWithCleanup()
+                        deactivate AbstractProtocolHandler
+                    end opt
+                    deactivate AbstractEndpoint
+
+                    AbstractProtocolHandler -> NioEndpoint++: endpoint.startInternal()
+                        note left
+                            Start the NIO endpoint, creating acceptor, poller threads.
+
+                            其他endpoint:
+                            Nio2Endpoint.startInternal()
+                            AprEndpoint.startInternal()
+
+                            见Tomcat启动流程_7_NioEndpoint_start.puml
+                        end note
+                    deactivate NioEndpoint
+                deactivate AbstractProtocolHandler
+            deactivate Connector
+        end loop
+    deactivate StandardService
+deactivate StandardService
+
+
+
+@enduml

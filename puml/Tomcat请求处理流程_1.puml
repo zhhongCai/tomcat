@@ -1,0 +1,53 @@
+@startuml
+
+header tomcat-9.0.30
+
+title Tomcat请求处理流程(NioEndpoint为例)\n\n
+
+Poller -> Poller++: processKey(sk, socketWrapper): 处理SelectionKey
+    Poller -> AbstractEndpoint++: processSocket(socketWrapper, SocketEvent.OPEN_READ, true)
+        AbstractEndpoint -> NioEndpoint++: sc = createSocketProcessor(socketWrapper, event)
+        AbstractEndpoint <-- NioEndpoint--
+
+        AbstractEndpoint -> AbstractEndpoint++: 异步线程中执行: executor.execute(sc)
+        AbstractEndpoint <-- AbstractEndpoint--
+    Poller <-- AbstractEndpoint--
+Poller <-- Poller--
+
+...其他线程...
+group "异步线程中执行"
+SocketProcessorBase -> SocketProcessorBase++: run()
+    SocketProcessor -> SocketProcessor++: doRun()
+        SocketProcessor -> ConnectionHandler++: getHandler().process(socketWrapper, SocketEvent.OPEN_READ)
+            ConnectionHandler ->  AbstractProcessorLight++: processor.process(wrapper, status)
+                AbstractProcessorLight ->  Http11Processor++: state = service(socketWrapper)
+                    Http11Processor ->  CoyoteAdapter++: getAdapter().service(request, response)
+                        CoyoteAdapter ->  CoyoteAdapter++: postParseSuccess = postParseRequest(req, request, res, response)
+                        note left
+                        Parse and set Catalina and configuration specific request parameters
+                        end note
+                        CoyoteAdapter <-- CoyoteAdapter--
+
+                        CoyoteAdapter -> Valve++: connector.getService().getContainer()\n.getPipeline().getFirst().invoke(request, response)
+                        note left
+                        调用容器的pipeline中的valve,以请求http://localhost:8080/为例:
+                        StandardEngineValve => AbstractAccessLogValve =>
+                        ErrorReportValve => StandardHostValve =>
+                        AuthenticatorBase => StandardContextValve =>
+                        StandardWrapperValve
+
+                        最后调ApplicationFilterChain.doFilter执行过滤链,过滤器链调用结束后调用servlet的service方法
+
+                        见Tomcat请求处理流程_2.puml
+                        end note
+                        CoyoteAdapter <-- Valve--
+                    Http11Processor <-- CoyoteAdapter--
+                AbstractProcessorLight <-- Http11Processor--
+            ConnectionHandler <-- AbstractProcessorLight--
+        SocketProcessor <-- ConnectionHandler--
+    SocketProcessor <-- SocketProcessor--
+SocketProcessorBase <-- SocketProcessorBase--
+
+end group
+
+@enduml

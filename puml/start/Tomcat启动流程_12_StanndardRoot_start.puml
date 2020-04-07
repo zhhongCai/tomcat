@@ -1,0 +1,185 @@
+@startuml
+
+header tomcat-9.0.30
+
+title tomcat 启动过程--StandardRoot start()\n\n
+
+StandardContext -> StandardContext++: resourcesStart()
+    StandardContext -> LifecycleBase++: start()
+        opt "state.equals(LifecycleState.NEW)"
+            LifecycleBase -> StandardRoot++: initInternal()
+                StandardRoot -> LifecycleMBeanBase++: initInternal()
+                note right
+                如果oname为空:
+                mserver = Registry.getRegistry(null, null).getMBeanServer()
+                oname=register(this, getObjectNameKeyProperties())
+                end note
+                StandardRoot <-- LifecycleMBeanBase--
+
+                StandardRoot -> StandardRoot++: registerURLStreamHandlerFactory();
+                note right
+                Ensure support for jar:war:file:/ URLs will be available
+                (required for resource JARs in packed WAR files):
+
+                    TomcatURLStreamHandlerFactory.register();
+                end note
+                StandardRoot <-- StandardRoot--
+
+                loop list in allResources
+                    loop  webResourceSet in list
+                        StandardRoot -> WebResourceSet++: webResourceSet.init()
+                        note right
+                        实现WebResourceSet接口的类有:
+                        WarResourceSet
+                        JarResourceSet
+                        JarWarResourceSet
+                        FileResourceSet
+                        DirResourceSet
+                        调用具体init方法见对应实现类
+                        end note
+                        StandardRoot <-- WebResourceSet--
+                    end loop
+                end loop
+            LifecycleBase <-- StandardRoot--
+        end opt
+
+        StandardContext -> StandardRoot++: startInternal()
+            StandardRoot -> StandardRoot++: main = mainResources.clear();\ncreateMainResourceSet();\nmainResources.add(main);
+            StandardRoot -> StandardRoot--
+
+            loop list in allResouces
+                opt "list != classResources"
+                    loop webResourceSet in list
+                        StandardRoot -> WebResourceSet++: webResourceSet.start();
+                        note right
+                        WarResourceSet
+                        JarResourceSet
+                        JarWarResourceSet
+                        FileResourceSet
+                        DirResourceSet
+                        调用具体init方法见对应实现类实现WebResourceSet接口的类有:
+                        end note
+                        StandardRoot <-- WebResourceSet--
+                    end loop
+                end opt
+            end loop
+
+            StandardRoot -> StandardRoot++: processWebInfLib()
+            StandardRoot <-- StandardRoot--
+
+            StandardRoot -> StandardRoot++: cache.enforceObjectMaxSizeLimit();\n setState(LifecycleState.STARTING)
+            StandardRoot <-- StandardRoot--
+        StandardContext <-- StandardRoot--
+    StandardContext <-- LifecycleBase--
+StandardContext <-- StandardContext--
+
+
+newpage WarResourceSet\n\n
+
+StandardRoot -> WebResourceSet++: webResourceSet.init()
+    WebResourceSet -> AbstractSingleArchiveResourceSet++: initInternal()
+    note right
+      setManifest(jarFile.getManifest())
+      setBaseUrl(UriUtil.buildJarSafeUrl(new File(getBase())));
+    end note
+    WebResourceSet <-- AbstractSingleArchiveResourceSet--
+StandardRoot <-- WebResourceSet--
+
+...过了一会儿...
+
+StandardRoot -> WebResourceSet++: webResourceSet.start();
+    WarResourceSet -> AbstractResourceSet++: startInternal()
+    note right
+    setState(LifecycleState.STARTING)
+    end note
+    WarResourceSet <-- AbstractResourceSet--
+StandardRoot <-- WebResourceSet--
+
+newpage JarResourceSet\n\n
+
+StandardRoot -> WebResourceSet++: webResourceSet.init()
+    WebResourceSet -> AbstractSingleArchiveResourceSet++: initInternal()
+    note right
+      setManifest(jarFile.getManifest())
+      setBaseUrl(UriUtil.buildJarSafeUrl(new File(getBase())));
+    end note
+    WebResourceSet <-- AbstractSingleArchiveResourceSet--
+StandardRoot <-- WebResourceSet--
+
+...过了一会儿...
+
+StandardRoot -> WebResourceSet++: webResourceSet.start();
+    WarResourceSet -> AbstractResourceSet++: startInternal()
+    note right
+    setState(LifecycleState.STARTING)
+    end note
+    WarResourceSet <-- AbstractResourceSet--
+StandardRoot <-- WebResourceSet--
+
+newpage JarWarResourceSet\n\n
+
+StandardRoot -> WebResourceSet++: webResourceSet.init()
+    WebResourceSet -> JarResourceSet++: initInternal()
+    note right
+      setManifest(jarIs.getManifest());
+      setBaseUrl(UriUtil.buildJarSafeUrl(new File(getBase())));
+    end note
+    WebResourceSet <-- JarResourceSet--
+StandardRoot <-- WebResourceSet--
+
+...过了一会儿...
+
+StandardRoot -> WebResourceSet++: webResourceSet.start();
+    WarResourceSet -> AbstractResourceSet++: startInternal()
+    note right
+    setState(LifecycleState.STARTING)
+    end note
+    WarResourceSet <-- AbstractResourceSet--
+StandardRoot <-- WebResourceSet--
+
+newpage FileResourceSet\n\n
+
+StandardRoot -> WebResourceSet++: webResourceSet.init()
+    WebResourceSet -> AbstractFileResourceSet++: initInternal()
+    note right
+    设置fileBase,absoluteBase,canonicalBase
+    end note
+    WebResourceSet <-- AbstractFileResourceSet--
+StandardRoot <-- WebResourceSet--
+
+...过了一会儿...
+
+
+StandardRoot -> WebResourceSet++: webResourceSet.start();
+    WarResourceSet -> AbstractResourceSet++: startInternal()
+    note right
+    setState(LifecycleState.STARTING)
+    end note
+    WarResourceSet <-- AbstractResourceSet--
+StandardRoot <-- WebResourceSet--
+
+newpage DirResourceSet\n\n
+
+StandardRoot -> WebResourceSet++: webResourceSet.init()
+    WebResourceSet -> DirResourceSet++: initInternal()
+    note right
+    设置fileBase,absoluteBase,canonicalBase:
+    AbstractFileResourceSet.initInternal()
+
+    setManifest(new Manifest(fis));
+    end note
+    WebResourceSet <-- DirResourceSet--
+StandardRoot <-- WebResourceSet--
+
+...过了一会儿...
+
+
+StandardRoot -> WebResourceSet++: webResourceSet.start();
+    WarResourceSet -> AbstractResourceSet++: startInternal()
+    note right
+    setState(LifecycleState.STARTING)
+    end note
+    WarResourceSet <-- AbstractResourceSet--
+StandardRoot <-- WebResourceSet--
+
+@enduml
